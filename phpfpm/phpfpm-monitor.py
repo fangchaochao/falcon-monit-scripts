@@ -3,13 +3,12 @@
 
 __author__ = 'serika00'
 
-import commands, socket, time, json, urllib2
-#import sys
+import commands, socket, time, json, urllib2,requests
 
-STATUS_PATH = "/fpm/status"
-LISTEN_ADDR = "127.0.0.1:9000"
 
-def go():
+phpfpm_url = "http://127.0.0.1:18881/phpstatus?json"
+
+def get_phpfpm():
     monit_keys = [
         # 'pool
         # 'start_time'
@@ -26,9 +25,12 @@ def go():
         ('total_processes', 'GAUGE'),
         ('listen_queue_len', 'GAUGE'),
     ]
+    data = requests.get(phpfpm_url)
 
-    status = commands.getoutput("SCRIPT_NAME=%s SCRIPT_FILENAME=%s QUERY_STRING='json' REQUEST_METHOD=GET cgi-fcgi -bind -connect %s | tail -n 1" % (STATUS_PATH, STATUS_PATH, LISTEN_ADDR))
-    status = json.loads(status)
+
+    #status = commands.getoutput("SCRIPT_NAME=%s SCRIPT_FILENAME=%s QUERY_STRING='json' REQUEST_METHOD=GET cgi-fcgi -bind -connect %s | tail -n 1" % (STATUS_PATH, STATUS_PATH, LISTEN_ADDR))
+    status = json.loads(data.text)
+    print status
 
     ip = socket.gethostname()
     timestamp = int(time.time())
@@ -51,24 +53,16 @@ def go():
         }
         p.append(i)
 
-    #print json.dumps(p)
-    #sys.exit(0)
-    method = "POST"
-    handler = urllib2.HTTPHandler()
-    opener = urllib2.build_opener(handler)
-    url = 'http://127.0.0.1:1988/v1/push'
-    request = urllib2.Request(url, data=json.dumps(p) )
-    request.add_header("Content-Type",'application/json')
-    request.get_method = lambda: method
-    try:
-        connection = opener.open(request)
-    except urllib2.HTTPError,e:
-        connection = e
+    print json.dumps(p)
 
-    if connection.code == 200:
-        pass
+    url = 'http://127.0.0.1:1988/v1/push'
+    reqdata = requests.post(url,json.dumps(p))
+
+
+    if reqdata.status_code == 200:
+        print  "ok"
     else:
         print '{"err":1,"msg":"%s"}' % connection
 
 if __name__ == '__main__':
-    go()
+    get_phpfpm()
